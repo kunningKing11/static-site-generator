@@ -1,0 +1,3 @@
+#!/bin/bash
+uv run python3 -m unittest discover -s src
+
