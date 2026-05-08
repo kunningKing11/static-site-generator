@@ -1,6 +1,8 @@
 import os
 import shutil
 
+from pathlib import Path
+
 from convert_md import markdown_to_html_node
 
 
@@ -45,7 +47,7 @@ def extract_title(markdown):
     raise Exception("no h1/# header found")
 
 
-def generate_page(from_path="content/index.md", template_path="template.html", dest_path="public/index.html"):
+def generate_page(from_path="content/index.md", template_path="template.html", dest_path="public/index.html", modify=True):
     print(f"Generating page from `{from_path}` to `{dest_path}` using `{template_path}`...")
 
     # Get full paths
@@ -69,22 +71,55 @@ def generate_page(from_path="content/index.md", template_path="template.html", d
     # Use template but replace title and content fields
     page = template_content.replace("{{ Title }}", title).replace("{{ Content }}", html)
 
-    # Check if `dest_dirname` directory exists; if not, create it
-    dest_dirname = os.path.dirname(dest_path)
-    if not os.path.exists(dest_dirname):
-        os.makedirs(dest_dirname)
-        print(f"`{dest_path}` directory did not exist; created directory.")
 
-    # Write `page` contents to `dest_path` file path
-    with open(dest_path, "w") as f:
-        f.write(page)
+    if modify:
+        # Check if `dest_dirname` directory exists; if not, create it
+        dest_dirname = os.path.dirname(dest_path)
+        if not os.path.exists(dest_dirname):
+            os.makedirs(dest_dirname)
+            print(f"`{dest_path}` directory did not exist; created directory.")
+
+        # Write `page` contents to `dest_path` file path
+        with open(dest_path, "w") as f:
+            f.write(page)
+    else:
+        return page
 
     print("File generated and written successfully!")
 
 
+def generate_pages_recursive(source_dir_path="content", template_path="template.html", dest_dir_path="public"):
+    # Get full paths
+    cwd = os.getcwd()
+    source_dir_path = os.path.join(cwd, source_dir_path)
+    template_path = os.path.join(cwd, template_path)
+    dest_dir_path = os.path.join(cwd, dest_dir_path)
+
+    # Check if `source_dir_path` directory exists
+    if not os.path.isdir(source_dir_path):
+        raise Exception("invalid directory path")
+
+    # Check if `dest_dir_path` directory exists; if not, create it
+    if not os.path.isdir(dest_dir_path):
+        os.makedirs(dest_dir_path)
+        print(f"`{dest_dir_path}` directory did not exist; created directory.")
+
+    for entry in os.listdir(source_dir_path):
+        source_entry_path = os.path.join(source_dir_path, entry)
+        dest_entry_path = os.path.join(dest_dir_path, entry)
+        if os.path.isfile(source_entry_path):
+            entry_page = generate_page(from_path=source_entry_path, modify=False)
+
+            # Write to file
+            with open(Path(dest_entry_path).with_suffix(".html"), "w") as f:  # change file extension from `.md` to `.html`
+                f.write(entry_page)
+        else:  # `source_entry_path` is a directory
+            generate_pages_recursive(source_entry_path, template_path, dest_entry_path)
+
+
 def main():
     copy_source("static", "public")
-    generate_page("content/index.md", "template.html", "public/index.html")
+    generate_pages_recursive("content", "template.html", "public")
 
 
 if __name__ == "__main__":
