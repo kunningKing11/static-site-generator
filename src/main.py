@@ -1,5 +1,6 @@
 import os
 import shutil
+import sys
 
 from pathlib import Path
 
@@ -47,7 +48,7 @@ def extract_title(markdown):
     raise Exception("no h1/# header found")
 
 
-def generate_page(from_path="content/index.md", template_path="template.html", dest_path="public/index.html", modify=True):
+def generate_page(from_path="content/index.md", template_path="template.html", dest_path="docs/index.html", basepath="/", modify=True):
     print(f"Generating page from `{from_path}` to `{dest_path}` using `{template_path}`...")
 
     # Get full paths
@@ -68,8 +69,23 @@ def generate_page(from_path="content/index.md", template_path="template.html", d
     title = extract_title(from_content)
     html = markdown_to_html_node(from_content).to_html()
 
-    # Use template but replace title and content fields
-    page = template_content.replace("{{ Title }}", title).replace("{{ Content }}", html)
+    # Use template but replace title and content fields.
+    #
+    # Additionally, replace all instances of
+    # `href="/` with `href="[basepath]`, and
+    # `src="/` with `src="[basepath]`,
+    # where `[basepath]` is the `basepath` command-line argument passed to the script.
+    page = template_content
+
+    replacements = {
+        "{{ Title }}": title,
+        "{{ Content }}": html,
+        'href="/': f'href="{basepath}',
+        'src="/': f'src="{basepath}',
+    }
+
+    for placeholder, value in replacements.items():
+        page = page.replace(placeholder, value)
 
 
     if modify:
@@ -85,10 +101,11 @@ def generate_page(from_path="content/index.md", template_path="template.html", d
     else:
         return page
 
-    print("File generated and written successfully!")
+    print("File generated and written to successfully!")
+    print("File source: {from_path}, template file: {template_path}, generated file: {dest_path}.")
 
 
-def generate_pages_recursive(source_dir_path="content", template_path="template.html", dest_dir_path="public"):
+def generate_pages_recursive(source_dir_path="content", template_path="template.html", dest_dir_path="public", basepath="/"):
     # Get full paths
     cwd = os.getcwd()
     source_dir_path = os.path.join(cwd, source_dir_path)
@@ -108,18 +125,35 @@ def generate_pages_recursive(source_dir_path="content", template_path="template.
         source_entry_path = os.path.join(source_dir_path, entry)
         dest_entry_path = os.path.join(dest_dir_path, entry)
         if os.path.isfile(source_entry_path):
-            entry_page = generate_page(from_path=source_entry_path, modify=False)
+            entry_page = generate_page(
+                from_path=source_entry_path,
+                basepath=basepath,
+                modify=False
+            )
 
             # Write to file
             with open(Path(dest_entry_path).with_suffix(".html"), "w") as f:  # change file extension from `.md` to `.html`
                 f.write(entry_page)
         else:  # `source_entry_path` is a directory
-            generate_pages_recursive(source_entry_path, template_path, dest_entry_path)
+            generate_pages_recursive(source_entry_path, template_path, dest_entry_path, basepath)
 
 
 def main():
-    copy_source("static", "public")
-    generate_pages_recursive("content", "template.html", "public")
+    # Set the base path
+    if len(sys.argv) > 1:
+        basepath = sys.argv[1]
+    else:
+        basepath = "/"
+
+    # Set common variables
+    content_source_dir
+    image_source_dir = "static"
+    template_source_file = "template.html"
+    output_dir = "docs"
+
+    # Generate the site
+    copy_source(image_source_dir, output_dir)
+    generate_pages_recursive(content_source_dir, template_source_file, output_dir, basepath=basepath)
 
 
 if __name__ == "__main__":
